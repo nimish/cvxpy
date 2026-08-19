@@ -1,3 +1,5 @@
+from itertools import chain
+
 import numpy as np
 from scipy import sparse
 
@@ -128,7 +130,7 @@ def suppfunc_canon(expr, args, solver_context: SolverInfo | None = None):
         # Map it to CVXPY's primal exponential cone convention.
         ec = ExpCone(-curr_v, -curr_u, np.exp(1) * curr_w)
         local_cons.append(ec)
-    for rows, source_con in K_sels["p3d"] + K_sels["pnd"]:
+    for rows, source_con in chain(K_sels["p3d"], K_sels["pnd"]):
         local_cons.append(source_con._dual_cone(
             *_split_cone_args(eta[rows], source_con.args)))
     epigraph = b @ eta

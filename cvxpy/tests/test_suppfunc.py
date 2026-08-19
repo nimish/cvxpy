@@ -336,9 +336,9 @@ class TestSupportFunctions(BaseTest):
             prob.solve(solver=solver, **kwargs)
             self.assertAlmostEqual(epigraph.value, 1 / 3, places=5)
 
-    def test_power_atom_set_description(self) -> None:
+    def test_suppfunc_with_exact_power_atom(self) -> None:
         x = cp.Variable()
-        sigma = cp.suppfunc(x, [cp.power(x, 1.5) <= 1])
+        sigma = cp.suppfunc(x, [cp.power(x, 1.5, approx=False) <= 1])
         epigraph = cp.Variable()
         prob = cp.Problem(cp.Minimize(epigraph), [sigma(1) <= epigraph])
 
