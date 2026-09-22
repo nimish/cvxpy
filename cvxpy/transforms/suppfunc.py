@@ -15,6 +15,7 @@ from cvxpy.problems.objective import Minimize
 from cvxpy.reductions.chain import Chain
 from cvxpy.reductions.complex2real import complex2real
 from cvxpy.reductions.cvx_attr2constr import CONVEX_ATTRIBUTES
+from cvxpy.reductions.dcp2cone.cone_matrix_stuffing import ConeMatrixStuffing
 from cvxpy.utilities.solver_context import SolverInfo
 from cvxpy.utilities.warn import CvxpyDeprecationWarning, warn
 
@@ -53,8 +54,11 @@ def scs_coniclift(x, constraints):
     # empty list, then the support function is the standard
     # support function for R^n.
     data, chain, invdata = prob.get_problem_data(solver='SCS')
-    inv = invdata[-2]
-    x_offset = inv.var_offsets[x.id]
+    # The variable offsets come from the stuffing step; find it by reduction
+    # rather than by position, since the chain's tail is not fixed.
+    stuffing = next(i for i, r in enumerate(chain.reductions)
+                    if isinstance(r, ConeMatrixStuffing))
+    x_offset = invdata[stuffing].var_offsets[x.id]
     x_indices = np.arange(x_offset, x_offset + x.size)
     A = data['A']
     x_selector = np.zeros(shape=(A.shape[1],), dtype=bool)
@@ -191,8 +195,8 @@ def _cone_selectors(
     """
     Parse cone rows from the ParamConeProg returned by ConeMatrixStuffing.
 
-    This is the representation before ConicSolver.format_constraints
-    rearranges the rows for a particular solver.
+    This is the representation before ConeFormat rearranges the rows for a
+    particular solver.
 
     Parameters
     ----------
@@ -322,15 +326,18 @@ class SuppFunc:
         self._conic_repr = None
         self._scs_conic_repr = None
 
-    def __call__(self, y) -> SuppFuncAtom:
+    def __call__(self, y, value_solve_kwargs: dict | None = None) -> SuppFuncAtom:
         """
         Return an atom representing
 
             max{ cvxpy.vec(y) @ cvxpy.vec(x) : x in S }
 
         where S is the convex set associated with this SuppFunc object.
+
+        ``value_solve_kwargs`` specifies keyword arguments passed to ``Problem.solve``
+        when evaluating the atom's value or gradient. The solver defaults to CLARABEL.
         """
-        sigma_at_y = SuppFuncAtom(y, self)
+        sigma_at_y = SuppFuncAtom(y, self, value_solve_kwargs=value_solve_kwargs)
         return sigma_at_y
 
     def _conic_repr_of_set(
